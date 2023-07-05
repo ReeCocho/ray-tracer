@@ -16,22 +16,6 @@ public:
 
     bool hit(const ray& r, const float t_min, const float t_max, HitRecord& rec) const override
     {
-        // Equation for sphere of radius r at center C is:
-        // (x - Cx)^2 + (y - Cy)^2 + (z - Cz)^2 = r^2
-        //
-        // Observe that this is really a dot product. Let P = (x, y, z):
-        // (P - C) dot (P - C) = r^2
-        //
-        // We want to see if this equation is satisfied for any points along the ray R, so we can
-        // make P a function of t, as in P(t) = A + tb, where A is the ray origin and b is the ray
-        // direction. So, we get:
-        //
-        // (P(t) - C) dot (P(t) - C) = r^2
-        // (A + tb - C) dot (A + tb - C) = r^2
-        // (t^2)(b dot b) + [2tb dot (A - C)] + [(A - C) dot (A - C)] - r^2 = 0
-        //
-        // This is really just a quadratic equation which we can solve.
-
         const auto oc = r.origin() - m_center;
         const auto a = r.direction().length_squared();
         const auto half_b = vec3::dot(

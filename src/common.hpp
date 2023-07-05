@@ -4,11 +4,7 @@
 
 #include <random>
 
-#if ENABLE_SIMD && !defined(_MSC_VER)
-    #error "Unknown compiler type. Cannot enable SIMD."
-#endif
-
-#ifdef _MSC_VER 
+#if ENABLE_SIMD
     #include <immintrin.h>
 #endif
 
@@ -50,12 +46,7 @@ inline float random_float()
 
 	const uint64_t t = g_random_state.seed[1] << 17;
 
-#if !ENABLE_SIMD
-    g_random_state.seed[2] ^= g_random_state.seed[0];
-    g_random_state.seed[3] ^= g_random_state.seed[1];
-    g_random_state.seed[1] ^= g_random_state.seed[2];
-    g_random_state.seed[0] ^= g_random_state.seed[3];
-#elif defined(_MSC_VER)
+#if ENABLE_SIMD
     alignas(32) const uint64_t shifted[4] = 
     { 
         g_random_state.seed[2], 
@@ -66,6 +57,11 @@ inline float random_float()
     
     const __m256i shiftedv = _mm256_load_si256((const __m256i*)shifted);
     g_random_state.seed_v = _mm256_xor_si256(g_random_state.seed_v, shiftedv);
+#else
+    g_random_state.seed[2] ^= g_random_state.seed[0];
+    g_random_state.seed[3] ^= g_random_state.seed[1];
+    g_random_state.seed[1] ^= g_random_state.seed[2];
+    g_random_state.seed[0] ^= g_random_state.seed[3];
 #endif
 
 	g_random_state.seed[2] ^= t;

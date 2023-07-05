@@ -6,7 +6,7 @@
 #include <iostream>
 #include "common.hpp"
 
-#ifdef _MSC_VER 
+#ifdef ENABLE_SIMD 
     #include <xmmintrin.h>
 #endif
 
@@ -20,141 +20,110 @@ public:
     inline float y() const { return e[1]; }
     inline float z() const { return e[2]; }
 
-#if !ENABLE_SIMD
-    
+#if ENABLE_SIMD
+    inline vec3() : v(_mm_set_ps(0, 0, 0, 0)) {}
+#else
     inline vec3() : e{0,0,0,0} {}
+#endif
     
     inline static vec3 max(const vec3& a, const vec3& b)
     {
         vec3 res;
+#if ENABLE_SIMD
+        res.v = _mm_max_ps(a.v, b.v);
+#else
         res.e[0] = std::max(a.e[0], b.e[0]);
         res.e[1] = std::max(a.e[1], b.e[1]);
         res.e[2] = std::max(a.e[2], b.e[2]);
+#endif
         return res;
     }
 
     inline static vec3 min(const vec3& a, const vec3& b)
     {
         vec3 res;
+#if ENABLE_SIMD
+        res.v = _mm_min_ps(a.v, b.v);
+#else
         res.e[0] = std::min(a.e[0], b.e[0]);
         res.e[1] = std::min(a.e[1], b.e[1]);
         res.e[2] = std::min(a.e[2], b.e[2]);
+#endif
         return res;
     }
 
-    inline vec3 operator-() const {  
+    inline vec3 operator-() const 
+    {
+#if ENABLE_SIMD
+        vec3 res;
+        const __m128 self = _mm_load_ps(e);
+        const __m128 neg = _mm_set_ps(0.0f, -1.0f, -1.0f, -1.0f);
+        res.v = _mm_mul_ps(self, neg);
+        return res;
+#else
         return vec3(-e[0], -e[1], -e[2]); 
+#endif
     }
 
     inline vec3& operator+=(const vec3 &v) 
     {
+#if ENABLE_SIMD      
+        const __m128 self = _mm_load_ps(e);
+        const __m128 other = _mm_load_ps(v.e);
+        this->v = _mm_add_ps(self, other);
+#else
         e[0] += v.e[0];
         e[1] += v.e[1];
         e[2] += v.e[2];
+#endif
         return *this;
     }
 
     inline vec3& operator*=(const float t) 
     {
+#if ENABLE_SIMD
+        const __m128 self = _mm_load_ps(e);
+        const __m128 ts = _mm_set_ps(0, t, t, t);
+        this->v = _mm_mul_ps(self, ts);
+#else
         e[0] *= t;
         e[1] *= t;
         e[2] *= t;
+#endif        
         return *this;
     }
 
     inline vec3& operator*=(const vec3 &v) 
     {
+#if ENABLE_SIMD
+        const __m128 self = _mm_load_ps(e);
+        const __m128 us = _mm_load_ps(v.e);
+        this->v = _mm_mul_ps(self, us);
+#else
         e[0] *= v.e[0];
         e[1] *= v.e[1];
         e[2] *= v.e[2];
+#endif
         return *this;
     }
 
     inline static float dot(const vec3 &u, const vec3 &v)
     {
-        return u.e[0] * v.e[0]
-            + u.e[1] * v.e[1]
-            + u.e[2] * v.e[2];
-    }
-
-    inline static vec3 cross(const vec3 &u, const vec3 &v) 
-    {
-        return vec3(u.e[1] * v.e[2] - u.e[2] * v.e[1],
-                    u.e[2] * v.e[0] - u.e[0] * v.e[2],
-                    u.e[0] * v.e[1] - u.e[1] * v.e[0]);
-    }
-
-    inline float length_squared() const 
-    {
-        return e[0]*e[0] + e[1]*e[1] + e[2]*e[2];
-    }
-
-    inline static vec3 unit_vector(const vec3 v) 
-    {
-        const auto l = v.length();
-        return vec3(v.e[0] / l, v.e[1] / l, v.e[2] / l);
-    }
-
-#elif defined(_MSC_VER)
-
-    inline vec3() : v(_mm_set_ps(0, 0, 0, 0)) {}
-
-    inline static vec3 max(const vec3& a, const vec3& b)
-    {
-        vec3 res;
-        res.v = _mm_max_ps(a.v, b.v);
-        return res;
-    }
-
-    inline static vec3 min(const vec3& a, const vec3& b)
-    {
-        vec3 res;
-        res.v = _mm_min_ps(a.v, b.v);
-        return res;
-    }
-
-    inline vec3 operator-() const { 
-        vec3 res;
-        const __m128 self = _mm_load_ps(e);
-        const __m128 neg = _mm_set_ps(0.0f, -1.0f, -1.0f, -1.0f);
-        res.v = _mm_mul_ps(self, neg);
-        return res; 
-    }
-
-    inline vec3& operator+=(const vec3 &v) 
-    {
-        const __m128 self = _mm_load_ps(e);
-        const __m128 other = _mm_load_ps(v.e);
-        this->v = _mm_add_ps(self, other);
-        return *this;
-    }
-
-    inline vec3& operator*=(const float t) 
-    {
-        const __m128 self = _mm_load_ps(e);
-        const __m128 ts = _mm_set_ps(0, t, t, t);
-        this->v = _mm_mul_ps(self, ts);
-        return *this;
-    }
-
-    inline vec3& operator*=(const vec3& u) 
-    {
-        const __m128 self = _mm_load_ps(e);
-        const __m128 us = _mm_load_ps(u.e);
-        this->v = _mm_mul_ps(self, us);
-        return *this;
-    }
-
-    inline static float dot(const vec3 &u, const vec3 &v)
-    {
+#if ENABLE_SIMD
         alignas(16) float out[4];
         const __m128 v0 = _mm_mul_ps(u.v, v.v);
         _mm_store_ps(out, v0);
         return out[0] + out[1] + out[2];
+#else
+        return u.e[0] * v.e[0]
+            + u.e[1] * v.e[1]
+            + u.e[2] * v.e[2];
+#endif
     }
 
     inline static vec3 cross(const vec3 &u, const vec3 &v) 
     {
+#if ENABLE_SIMD
         vec3 out;
         const __m128 vec0 = _mm_load_ps(u.e);
         const __m128 vec1 = _mm_load_ps(v.e);
@@ -165,6 +134,11 @@ public:
         const __m128 tmp4 = _mm_shuffle_ps(tmp2, tmp2, _MM_SHUFFLE(3,0,2,1));
         out.v = _mm_sub_ps(tmp3,tmp4);
         return out;
+#else
+        return vec3(u.e[1] * v.e[2] - u.e[2] * v.e[1],
+                    u.e[2] * v.e[0] - u.e[0] * v.e[2],
+                    u.e[0] * v.e[1] - u.e[1] * v.e[0]);
+#endif
     }
 
     inline float length_squared() const 
@@ -177,8 +151,6 @@ public:
         const auto l = v.length();
         return v *= (1/l);
     }
-
-#endif
 
     inline float operator[](int i) const { return e[i]; }
     inline float& operator[](int i) { return e[i]; }
@@ -236,14 +208,14 @@ public:
 
 public:
 
-#if !ENABLE_SIMD
-    float e[4];
-#elif defined(_MSC_VER) 
+#if ENABLE_SIMD
     union
     {
         float e[4];
         __m128 v;
     };
+#else
+    float e[4];
 #endif
 };
 
@@ -257,63 +229,57 @@ inline vec3 operator+(const vec3 &u, const vec3 &v)
     return vec3(u.e[0] + v.e[0], u.e[1] + v.e[1], u.e[2] + v.e[2]);
 }
 
-#if !ENABLE_SIMD
-    inline vec3 operator-(const vec3 &u, const vec3 &v) 
-    {
-        return vec3(u.e[0] - v.e[0], u.e[1] - v.e[1], u.e[2] - v.e[2]);
-    }
-
-    inline vec3 operator*(const vec3 &u, const vec3 &v) 
-    {
-        return vec3(u.e[0] * v.e[0], u.e[1] * v.e[1], u.e[2] * v.e[2]);
-    }
-
-    inline vec3 operator*(float t, const vec3 &v) 
-    {
-        return vec3(t*v.e[0], t*v.e[1], t*v.e[2]);
-    }
-
-    inline vec3 operator/(float t, const vec3 &v) 
-    {
-        return vec3(t/v.e[0], t/v.e[1], t/v.e[2]);
-    }
-#elif defined(_MSC_VER) 
-    inline vec3 operator-(const vec3 &u, const vec3 &v) 
-    {
-        vec3 out;
-        const __m128 us = _mm_load_ps(u.e);
-        const __m128 vs = _mm_load_ps(v.e);
-        out.v = _mm_sub_ps(us, vs);
-        return out;
-    }
-
-    inline vec3 operator*(const vec3 &u, const vec3 &v) 
-    {
-        vec3 out;
-        const __m128 us = _mm_load_ps(u.e);
-        const __m128 vs = _mm_load_ps(v.e);
-        out.v = _mm_mul_ps(us, vs);
-        return out;
-    }
-
-    inline vec3 operator*(float t, const vec3 &v) 
-    {
-        vec3 out;
-        const __m128 us = _mm_set_ps(0, t, t, t);
-        const __m128 vs = _mm_load_ps(v.e);
-        out.v = _mm_mul_ps(us, vs);
-        return out;
-    }
-
-    inline vec3 operator/(float t, const vec3 &v) 
-    {
-        vec3 out;
-        const __m128 us = _mm_set_ps(0, t, t, t);
-        const __m128 vs = _mm_load_ps(v.e);
-        out.v = _mm_div_ps(us, vs);
-        return out;
-    }
+inline vec3 operator-(const vec3 &u, const vec3 &v) 
+{
+#if ENABLE_SIMD
+    vec3 out;
+    const __m128 us = _mm_load_ps(u.e);
+    const __m128 vs = _mm_load_ps(v.e);
+    out.v = _mm_sub_ps(us, vs);
+    return out;
+#else
+    return vec3(u.e[0] - v.e[0], u.e[1] - v.e[1], u.e[2] - v.e[2]);
 #endif
+}
+
+inline vec3 operator*(const vec3 &u, const vec3 &v) 
+{
+#if ENABLE_SIMD
+    vec3 out;
+    const __m128 us = _mm_load_ps(u.e);
+    const __m128 vs = _mm_load_ps(v.e);
+    out.v = _mm_mul_ps(us, vs);
+    return out;
+#else
+    return vec3(u.e[0] * v.e[0], u.e[1] * v.e[1], u.e[2] * v.e[2]);
+#endif
+}
+
+inline vec3 operator*(float t, const vec3 &v) 
+{
+#if ENABLE_SIMD
+    vec3 out;
+    const __m128 us = _mm_set_ps(0, t, t, t);
+    const __m128 vs = _mm_load_ps(v.e);
+    out.v = _mm_mul_ps(us, vs);
+    return out;
+#else
+    return vec3(t*v.e[0], t*v.e[1], t*v.e[2]);
+#endif
+}
+
+inline vec3 operator/(float t, const vec3 &v) 
+{
+#if ENABLE_SIMD
+    vec3 out;
+    const __m128 us = _mm_set_ps(0, t, t, t);
+    const __m128 vs = _mm_load_ps(v.e);
+    out.v = _mm_div_ps(us, vs);
+    return out;
+#else
+    return vec3(t/v.e[0], t/v.e[1], t/v.e[2]);
+#endif
+}
 
 inline vec3 operator*(const vec3 &v, float t) 
 {
